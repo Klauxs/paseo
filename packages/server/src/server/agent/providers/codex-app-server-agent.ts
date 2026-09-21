@@ -511,6 +511,16 @@ export async function findCodexMicrosoftStoreBinary(): Promise<string | null> {
 export async function findDefaultCodexBinary(): Promise<string | null> {
   const pathBinary = await findExecutable("codex");
   if (pathBinary) return pathBinary;
+  if (process.platform === "darwin") {
+    const applicationDirs = ["/Applications", path.join(os.homedir(), "Applications")];
+    for (const applicationDir of applicationDirs) {
+      for (const appName of ["Codex.app", "ChatGPT.app"]) {
+        const candidate = path.join(applicationDir, appName, "Contents", "Resources", "codex");
+        if (await probeExecutable(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
   return await findCodexMicrosoftStoreBinary();
 }
 
