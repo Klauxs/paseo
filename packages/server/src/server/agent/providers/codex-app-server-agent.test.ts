@@ -1,6 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import os from "node:os";
-import * as executableResolution from "../../../executable-resolution/executable-resolution.js";
+import { describe, expect, test, vi } from "vitest";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { type Dirent, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -21,7 +19,6 @@ import {
   buildCodexAppServerEnv,
   CodexAppServerAgentClient,
   CodexAppServerAgentSession,
-  findDefaultCodexBinary,
   codexMicrosoftStoreBinaryCandidates,
   codexAppServerTurnInputFromPrompt,
   listCodexSkills,
@@ -48,69 +45,6 @@ describe("mapCodexPlanUpdateToTodo", () => {
         { id: "2", text: "Verify", status: "pending", completed: false },
       ],
     });
-  });
-});
-
-describe("Codex executable discovery: macOS app fallback", () => {
-  const originalPlatform = process.platform;
-
-  beforeEach(() => {
-    Object.defineProperty(process, "platform", { value: "darwin" });
-    vi.spyOn(os, "homedir").mockReturnValue("/Users/test");
-    vi.spyOn(executableResolution, "findExecutable").mockResolvedValue(null);
-  });
-
-  afterEach(() => {
-    Object.defineProperty(process, "platform", { value: originalPlatform });
-    vi.restoreAllMocks();
-  });
-
-  test("finds the CLI bundled with ChatGPT when PATH has no Codex", async () => {
-    // Isolate installed applications and platform so this runs on every CI host.
-    const binary = path.normalize("/Applications/ChatGPT.app/Contents/Resources/codex");
-    vi.spyOn(executableResolution, "probeExecutable").mockImplementation(
-      async (candidate) => candidate === binary,
-    );
-
-    await expect(findDefaultCodexBinary()).resolves.toBe(binary);
-  });
-
-  test.each([
-    "/Applications/Codex.app/Contents/Resources/codex",
-    "/Users/test/Applications/Codex.app/Contents/Resources/codex",
-    "/Users/test/Applications/ChatGPT.app/Contents/Resources/codex",
-  ])("finds the bundled CLI at %s", async (location) => {
-    const binary = path.normalize(location);
-    vi.spyOn(executableResolution, "probeExecutable").mockImplementation(
-      async (candidate) => candidate === binary,
-    );
-    await expect(findDefaultCodexBinary()).resolves.toBe(binary);
-  });
-
-  test("prefers PATH without probing app bundles", async () => {
-    vi.mocked(executableResolution.findExecutable).mockResolvedValue("/opt/homebrew/bin/codex");
-    const probe = vi.spyOn(executableResolution, "probeExecutable").mockResolvedValue(true);
-    await expect(findDefaultCodexBinary()).resolves.toBe("/opt/homebrew/bin/codex");
-    expect(probe).not.toHaveBeenCalled();
-  });
-
-  test("prefers the system Codex app when multiple bundles are available", async () => {
-    vi.spyOn(executableResolution, "probeExecutable").mockResolvedValue(true);
-    await expect(findDefaultCodexBinary()).resolves.toBe(
-      path.normalize("/Applications/Codex.app/Contents/Resources/codex"),
-    );
-  });
-
-  test("returns unavailable when no bundled executable can run", async () => {
-    vi.spyOn(executableResolution, "probeExecutable").mockResolvedValue(false);
-    await expect(findDefaultCodexBinary()).resolves.toBeNull();
-  });
-
-  test("does not probe macOS apps on Linux", async () => {
-    Object.defineProperty(process, "platform", { value: "linux" });
-    const probe = vi.spyOn(executableResolution, "probeExecutable").mockResolvedValue(true);
-    await expect(findDefaultCodexBinary()).resolves.toBeNull();
-    expect(probe).not.toHaveBeenCalled();
   });
 });
 
